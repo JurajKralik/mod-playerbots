@@ -62,5 +62,10 @@ bool AcceptInvitationAction::Execute(Event event)
     {
         Teleport(inviter, bot, true);
     }
+    else if (!sPlayerbotAIConfig.summonWhenGroup && !bot->IsInCombat())
+    {
+        botAI->ClearConversationPause();
+        botAI->DoSpecificAction("follow", Event(), true);
+    }
     return true;
 }

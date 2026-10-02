@@ -571,6 +571,14 @@ public:
     void SetCheat(BotCheatMask mask) { cheatMask = mask; }
 
     void SetMaster(Player* newMaster) { master = newMaster; }
+    void SetSocialFollow(Player* player, uint32 seconds);
+    void ClearSocialFollow();
+    void PauseForConversation(uint32 seconds);
+    bool IsSociallyEngaged() const
+    {
+        return socialFollowUntil > time(nullptr) || conversationPauseUntil > time(nullptr);
+    }
+    void ClearConversationPause() { conversationPauseUntil = 0; }
     AiObjectContext* GetAiObjectContext() { return aiObjectContext; }
     ChatHelper* GetChatHelper() { return &chatHelper; }
     bool IsOpposing(Player* player);
@@ -631,6 +639,9 @@ private:
 protected:
     Player* bot;
     Player* master;
+    ObjectGuid socialFollowGuid;
+    time_t socialFollowUntil = 0;
+    time_t conversationPauseUntil = 0;
     uint32 accountId;
     AiObjectContext* aiObjectContext;
     Engine* currentEngine;

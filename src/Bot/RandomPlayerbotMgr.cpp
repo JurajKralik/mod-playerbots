@@ -1338,6 +1338,10 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     Player* player = GetPlayerBot(botGUID);
     PlayerbotAI* botAI = player ? GET_PLAYERBOT_AI(player) : nullptr;
 
+    // Do not recycle, randomize or teleport a bot during a bounded player interaction.
+    if (botAI && botAI->IsSociallyEngaged())
+        return false;
+
     uint32 isValid = GetEventValue(bot, "add");
     if (!isValid)
     {
@@ -1442,6 +1446,9 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
 
 bool RandomPlayerbotMgr::ProcessBot(Player* bot)
 {
+    if (PlayerbotAI* ai = GET_PLAYERBOT_AI(bot))
+        if (ai->IsSociallyEngaged())
+            return false;
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)

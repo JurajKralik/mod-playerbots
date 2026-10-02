@@ -408,6 +408,33 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     YieldThread(bot, GetReactDelay());
 }
 
+// A bounded social follow can exist without changing party membership.
+void PlayerbotAI::SetSocialFollow(Player* player, uint32 seconds)
+{
+    socialFollowGuid = player ? player->GetGUID() : ObjectGuid::Empty;
+    socialFollowUntil = player ? time(nullptr) + seconds : 0;
+    conversationPauseUntil = 0;
+    SetMaster(player);
+}
+
+void PlayerbotAI::ClearSocialFollow()
+{
+    Player* target = ObjectAccessor::FindPlayer(socialFollowGuid);
+    if (!target || master == target)
+        SetMaster(nullptr);
+    socialFollowGuid.Clear();
+    socialFollowUntil = 0;
+    conversationPauseUntil = 0;
+}
+
+void PlayerbotAI::PauseForConversation(uint32 seconds)
+{
+    if (!bot || bot->IsInCombat() || !bot->IsAlive() || bot->IsInFlight())
+        return;
+    conversationPauseUntil = time(nullptr) + seconds;
+    bot->StopMovingOnCurrentPos();
+}
+
 // Helper function for UpdateAI to check group membership and handle removal if necessary
 void PlayerbotAI::UpdateAIGroupMaster()
 {
@@ -417,6 +444,23 @@ void PlayerbotAI::UpdateAIGroupMaster()
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)
         return;
+
+    if (!socialFollowGuid.IsEmpty())
+    {
+        Player* target = ObjectAccessor::FindPlayer(socialFollowGuid);
+        if (socialFollowUntil > time(nullptr) && target && target->IsInWorld()
+            && (!master || master == target))
+        {
+            master = target;
+            if (!bot->GetGroup())
+                return;
+        }
+        else
+        {
+            ClearSocialFollow();
+            ResetStrategies();
+        }
+    }
 
     Group* group = bot->GetGroup();
 
@@ -551,7 +595,13 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     masterIncomingPacketHandlers.Handle(helper);
     masterOutgoingPacketHandlers.Handle(helper);
 
-    DoNextAction(minimal);
+    // Packet handlers and commands still run while a conversation holds idle movement.
+    if (bot->IsInCombat())
+        conversationPauseUntil = 0;
+    if (conversationPauseUntil > time(nullptr) && bot->IsAlive() && !bot->IsInFlight())
+        bot->StopMovingOnCurrentPos();
+    else
+        DoNextAction(minimal);
 
     if (pmo)
         pmo->finish();
